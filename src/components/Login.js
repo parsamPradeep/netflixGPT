@@ -1,18 +1,85 @@
 import { useRef, useState } from "react";
 import Header from "./Header";
 import { checkValiData } from "../utils/validation";
+import { auth } from "../utils/firebase";
+import {
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
+  updateProfile,
+} from "firebase/auth";
+import { useNavigate } from "react-router-dom";
+import { useDispatch } from "react-redux";
+import { addUser } from "../utils/userSlice";
 
 const Login = () => {
   const [isSingInForm, setIsSignInForm] = useState(true);
   const [errorMessage, setErrorMessage] = useState(null);
   const email = useRef(null);
   const password = useRef(null);
+  const displayName = useRef(null);
+  const navigate = useNavigate();
+  const dispatch = useDispatch();
   const handleButtonClick = () => {
     const validationMsg = checkValiData(
       email.current.value,
       password.current.value
     );
     setErrorMessage(validationMsg);
+    if (validationMsg) return;
+    if (!isSingInForm) {
+      createUserWithEmailAndPassword(
+        auth,
+        email.current.value,
+        password.current.value
+      )
+        .then((userCredential) => {
+          // Signed up
+          updateProfile(auth.currentUser, {
+            displayName: displayName.current.value,
+            photoURL:
+              "https://i.pinimg.com/originals/d7/19/6a/d7196adc7c4f353d52235c5e6ed12e65.jpg",
+          })
+            .then(() => {
+              dispatch(
+                addUser({
+                  email: auth.currentUser.email,
+                  name: auth.currentUser.displayName,
+                  url: auth.currentUser.photoURL,
+                })
+              );
+            })
+            .catch((error) => {
+              // An error occurred
+              // ...
+            });
+          const user = userCredential.user;
+          navigate("/browse");
+          // ...
+        })
+        .catch((error) => {
+          const errorCode = error.code;
+          const errorMessage = error.message;
+          // ..
+          setErrorMessage(errorCode + "-" + errorMessage);
+        });
+    } else {
+      signInWithEmailAndPassword(
+        auth,
+        email.current.value,
+        password.current.value
+      )
+        .then((userCredential) => {
+          // Signed in
+          const user = userCredential.user;
+          navigate("/browse");
+          // ...
+        })
+        .catch((error) => {
+          const errorCode = error.code;
+          const errorMessage = error.message;
+          setErrorMessage(errorCode + "-" + errorMessage);
+        });
+    }
   };
 
   return (
@@ -34,6 +101,7 @@ const Login = () => {
         </h1>
         {!isSingInForm && (
           <input
+            ref={displayName}
             type="text"
             placeholder="Full name"
             className="p-4 my-4 w-full bg-gray-700 rounded-md"
